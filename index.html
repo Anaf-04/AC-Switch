@@ -160,8 +160,7 @@
       transition: opacity 0.35s, transform 0.35s;
       display: flex;
     }
-    #imgOn  { align-self: flex-start; }
-    #imgOff { align-self: flex-end; }
+    #imgOff, #pressVid { align-self: center; }
     .lever-img.hidden { opacity: 0; pointer-events: none; transform: scale(0.92); }
     .lever-hint {
       position: absolute;
@@ -280,14 +279,14 @@
     <p class="page-title">Manual Control</p>
 
     <div class="lever-wrap" id="leverWrap">
-      <img class="lever-img" id="imgOff" src="img/leverOff.png" alt="OFF">
-      <img class="lever-img hidden" id="imgOn" src="img/leverOn.png" alt="ON">
+      <img class="lever-img" id="imgOff" src="img/off.png" alt="Switch">
+      <video class="lever-img hidden" id="pressVid" src="img/on-off.mp4" muted playsinline preload="auto"></video>
       <div class="lever-hint" id="leverHint">
-        <span class="arrow">↑</span><span>Swipe up to turn ON</span>
+        <span class="arrow">↕</span><span>Swipe to press switch</span>
       </div>
     </div>
 
-    <p class="msg" id="manualMsg" style="margin-top: 48px;">AC is OFF</p>
+    <p class="msg" id="manualMsg" style="margin-top: 48px;">Swipe to toggle AC</p>
   </div>
 
 </div>
@@ -375,15 +374,14 @@
 
   // Called whenever the ESP32 reports its state.
   //   "timer:<seconds>"  → countdown running on device
-  //   "idle:on"/"idle:off" → no timer; AC in given state
+  //   "idle"             → no timer running
   function handleStatus(msg) {
     if (msg.startsWith('timer:')) {
       remaining = parseInt(msg.slice(6)) || 0;
       showRunning();
       refreshDisplay();
-    } else if (msg.startsWith('idle:')) {
+    } else {
       showIdle();
-      syncManual(msg.slice(5) === 'on');
     }
   }
 
@@ -417,55 +415,50 @@
     document.getElementById('timerDisplay').textContent = `${h}:${m}:${s}`;
   }
 
-  // ── Manual lever swipe ───────────────────────────────────────
-  let acOn = false;
+  // ── Manual press ─────────────────────────────────────────────
+  // One momentary tap of the switch. Swiping (any direction) sends a
+  // single "press"; the video plays once, then we return to off.png.
   let touchStartY = 0;
+  let pressing = false;
   const SWIPE_THRESHOLD = 50;
 
   const leverWrap = document.getElementById('leverWrap');
   const imgOff    = document.getElementById('imgOff');
-  const imgOn     = document.getElementById('imgOn');
+  const pressVid  = document.getElementById('pressVid');
   const leverHint = document.getElementById('leverHint');
 
-  // Update the lever visuals to match a known AC state (from ESP32 status).
-  function syncManual(on) {
-    acOn = on;
-    if (on) {
-      imgOff.classList.add('hidden');
-      imgOn.classList.remove('hidden');
-      leverHint.innerHTML = '<span class="arrow">↓</span><span>Swipe down to turn OFF</span>';
-      setMsg('manualMsg', 'AC is ON', 'ok');
-    } else {
-      imgOn.classList.add('hidden');
-      imgOff.classList.remove('hidden');
-      leverHint.innerHTML = '<span class="arrow">↑</span><span>Swipe up to turn ON</span>';
-      setMsg('manualMsg', 'AC is OFF');
-    }
+  function playPress() {
+    if (pressing) return;
+    pressing = true;
+    imgOff.classList.add('hidden');
+    pressVid.classList.remove('hidden');
+    pressVid.currentTime = 0;
+    pressVid.play().catch(() => {});
   }
+
+  function endPress() {
+    pressVid.pause();
+    pressVid.classList.add('hidden');
+    imgOff.classList.remove('hidden');
+    pressing = false;
+  }
+
+  pressVid.addEventListener('ended', endPress);
 
   leverWrap.addEventListener('touchstart', e => {
     touchStartY = e.touches[0].clientY;
   }, { passive: true });
 
   leverWrap.addEventListener('touchend', e => {
-    const dy = touchStartY - e.changedTouches[0].clientY; // positive = swipe up
+    const dy = Math.abs(touchStartY - e.changedTouches[0].clientY);
+    if (dy < SWIPE_THRESHOLD) return;
 
-    if (!acOn && dy > SWIPE_THRESHOLD) {
-      // Swipe up → turn ON
-      if (publish('on')) {
-        syncManual(true);
-        toast('✅ AC turned ON');
-      } else {
-        setMsg('manualMsg', '❌ Not connected to broker', 'err');
-      }
-    } else if (acOn && dy < -SWIPE_THRESHOLD) {
-      // Swipe down → turn OFF
-      if (publish('off')) {
-        syncManual(false);
-        toast('✅ AC turned OFF');
-      } else {
-        setMsg('manualMsg', '❌ Not connected to broker', 'err');
-      }
+    if (publish('press')) {
+      playPress();
+      setMsg('manualMsg', '✅ Switch pressed', 'ok');
+      toast('✅ Switch pressed');
+    } else {
+      setMsg('manualMsg', '❌ Not connected to broker', 'err');
     }
   }, { passive: true });
 

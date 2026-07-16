@@ -1,10 +1,10 @@
-const CACHE  = 'ac-switch-v2';
+const CACHE  = 'ac-switch-v3';
 const ASSETS = [
   './index.html',
   './manifest.json',
   './img/switch.png',
-  './img/leverOff.png',
-  './img/leverOn.png',
+  './img/off.png',
+  './img/on-off.mp4',
   './img/home.png',
   './img/time.png',
   'https://unpkg.com/mqtt/dist/mqtt.min.js',
