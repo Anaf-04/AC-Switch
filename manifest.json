@@ -1,0 +1,14 @@
+{
+  "name": "AC Remote Switch",
+  "short_name": "AC Switch",
+  "description": "Remote timer switch for AC via MQTT",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#0f0f1a",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "../img/switch.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../img/switch.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
